@@ -181,3 +181,68 @@ for obs in obstacle_area:
 
 # 将地图渲染到Streamlit网页页面
 st_folium(map_main, width=1000, height=600)
+# ====================== 新增双面板任务点模块 ======================
+from datetime import datetime
+
+# 初始化任务存储
+if "task_records" not in st.session_state:
+    st.session_state.task_records = []
+
+st.divider()
+st.markdown("# Status embed installed...")
+st.caption("This will be shown if an incident or maintenance is posted on your status page.")
+st.divider()
+
+# 左右分栏双面板
+col_left, col_right = st.columns(2)
+# 左侧无人机心跳面板
+with col_left:
+    st.subheader("无人机心跳监控")
+    with st.status("巡检任务队列", expanded=True):
+        drone_task_list = [i for i in st.session_state.task_records if i["source"] == "drone"]
+        if not drone_task_list:
+            st.write("暂无故障、维护任务记录")
+        for task in drone_task_list:
+            st.write(f"[{task['time']}] 【{task['type']}】 {task['name']}")
+    st.link_button("View latest updates（无人机）", url="https://drone-heartbeat-monitor-9oxvtxeqcwshezptgmquy9.streamlit.app/")
+
+# 右侧通用状态面板
+with col_right:
+    st.subheader("通用运维状态面板")
+    with st.status("运维事件队列", expanded=True):
+        base_task_list = [i for i in st.session_state.task_records if i["source"] == "base"]
+        if not base_task_list:
+            st.write("暂无故障、维护任务记录")
+        for task in base_task_list:
+            st.write(f"[{task['time']}] 【{task['type']}】 {task['name']}")
+    st.link_button("View latest updates（通用）", url="https://mbwx5hlahchvve7etuuws3.streamlit.app/")
+
+st.divider()
+# 添加任务表单
+st.subheader("添加新任务点/故障事件")
+with st.form("add_task_form", clear_on_submit=True):
+    task_content = st.text_input("任务/事件描述", placeholder="例如：无人机心跳延迟、服务器维护、设备离线告警")
+    task_category = st.selectbox("事件类型", ["常规巡检", "设备维护", "离线故障", "系统异常告警"])
+    belong_panel = st.selectbox("归属对应面板", ["无人机心跳监控", "通用运维状态面板"])
+    submit = st.form_submit_button("确认添加任务点")
+
+if submit:
+    source_flag = "drone" if belong_panel == "无人机心跳监控" else "base"
+    if task_content.strip() == "":
+        st.warning("请填写任务描述！")
+    else:
+        new_task_item = {
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "name": task_content,
+            "type": task_category,
+            "source": source_flag
+        }
+        st.session_state.task_records.append(new_task_item)
+        st.success("任务点添加成功，上方面板自动刷新！")
+        st.rerun()
+
+# 清空按钮
+st.divider()
+if st.button("一键清空所有任务记录", type="secondary"):
+    st.session_state.task_records = []
+    st.rerun()
